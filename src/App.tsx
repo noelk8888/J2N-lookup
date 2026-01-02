@@ -5,7 +5,10 @@ import { fetchCategoryData } from './services/sheetService';
 import { type SubCategory, type MainCategory } from './types';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ListingGrid } from './components/ListingGrid';
-import { Search, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Login } from './components/Login';
+import { AdminPanel } from './components/AdminPanel';
+import { useAuth } from './contexts/AuthContext';
+import { Search, ArrowUp, ArrowDown, X, LogOut, Settings } from 'lucide-react';
 
 type SortField = 'none' | 'quantity' | 'styleNumber' | 'suffix';
 type SortDirection = 'asc' | 'desc';
@@ -16,13 +19,15 @@ const extractSuffixNumber = (itemCode: string): number => {
   return match ? parseInt(match[1], 10) : 0;
 };
 
-function App() {
+function AppContent() {
+  const { user, isAdmin, signOut } = useAuth();
   const [mainCategory, setMainCategory] = useState<MainCategory>('MW');
   const [activeSubCategory, setActiveSubCategory] = useState<SubCategory>('TOPS');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [sortField, setSortField] = useState<SortField>('none');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const mainCategoryConfig = getMainCategoryConfig(mainCategory);
   const subcategories = mainCategoryConfig?.subcategories || [];
@@ -103,7 +108,7 @@ function App() {
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col gap-3">
-            {/* Line 1: Title + Search + Show All */}
+            {/* Line 1: Title + Search + Show All + User Menu */}
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">J2N LookUp</h1>
 
@@ -141,6 +146,29 @@ function App() {
                   <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-4 transition-transform" />
                 </div>
               </label>
+
+              {/* User Menu */}
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdminPanel(true)}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                    title="Admin Panel"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </button>
+                )}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="hidden sm:inline">{user?.email}</span>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Line 2: Category Tabs + Sort */}
@@ -195,8 +223,35 @@ function App() {
           error={error as Error | null}
         />
       </main>
+
+      {/* Admin Panel Modal */}
+      {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
     </div>
   );
+}
+
+function App() {
+  const { user, isApproved, isLoading } = useAuth();
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login if not authenticated or not approved
+  if (!user || !isApproved) {
+    return <Login />;
+  }
+
+  // Show main app content
+  return <AppContent />;
 }
 
 export default App;
