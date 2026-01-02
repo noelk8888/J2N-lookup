@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getSubcategories, getMainCategoryConfig } from './config/sheets';
 import { fetchCategoryData } from './services/sheetService';
 import { type SubCategory, type MainCategory } from './types';
-import { CategoryTabs } from './components/CategoryTabs';
+import { CategoryTabs, MainCategoryTabs, SubCategoryTabs } from './components/CategoryTabs';
 import { ListingGrid } from './components/ListingGrid';
 import { Login } from './components/Login';
 import { AdminPanel } from './components/AdminPanel';
@@ -108,11 +108,12 @@ function AppContent() {
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col gap-3">
-            {/* Line 1: Title + Search + Show All + User Menu */}
+            {/* Line 1: Title + Show All + User Menu (Search on desktop) */}
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold tracking-tight whitespace-nowrap">J2N LookUp</h1>
 
-              <div className="relative flex-1">
+              {/* Search - Hidden on mobile, shown on desktop */}
+              <div className="relative flex-1 hidden sm:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
@@ -133,7 +134,7 @@ function AppContent() {
               </div>
 
               {/* Toggle for Show All */}
-              <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+              <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap ml-auto sm:ml-0">
                 <span className="text-sm text-muted-foreground">Show All</span>
                 <div className="relative">
                   <input
@@ -171,8 +172,29 @@ function AppContent() {
               </div>
             </div>
 
-            {/* Line 2: Category Tabs + Sort */}
-            <div className="flex items-center gap-4">
+            {/* Mobile Search - Shown only on mobile */}
+            <div className="relative sm:hidden">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search by code or price..."
+                className="w-full pl-10 pr-10 py-2 rounded-md border bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Desktop: Category Tabs + Sort on same row */}
+            <div className="hidden sm:flex items-center gap-4">
               <CategoryTabs
                 mainCategory={mainCategory}
                 activeSubCategory={activeSubCategory}
@@ -211,6 +233,54 @@ function AppContent() {
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Mobile: Main Categories + Sort on one row */}
+            <div className="flex sm:hidden items-center gap-4">
+              <MainCategoryTabs
+                mainCategory={mainCategory}
+                onMainCategoryChange={handleMainCategoryChange}
+              />
+
+              {/* Sort Section */}
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Sort:</span>
+                <select
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value as SortField)}
+                  className="px-2 py-1.5 rounded-md border bg-muted/50 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                >
+                  <option value="none">None</option>
+                  <option value="quantity">Quantity</option>
+                  <option value="styleNumber">Style Number</option>
+                  <option value="suffix">Suffix</option>
+                </select>
+
+                {sortField !== 'none' && (
+                  <button
+                    onClick={toggleSortDirection}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-md border bg-muted/50 text-sm hover:bg-secondary transition-colors"
+                  >
+                    {sortDirection === 'desc' ? (
+                      <ArrowDown className="h-4 w-4" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile: Subcategories on separate row */}
+            <div className="sm:hidden">
+              <SubCategoryTabs
+                activeSubCategory={activeSubCategory}
+                subcategories={subcategories}
+                onSubCategoryChange={(c) => {
+                  setActiveSubCategory(c);
+                  setSearchQuery('');
+                }}
+              />
             </div>
           </div>
         </div>

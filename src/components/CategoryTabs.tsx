@@ -2,24 +2,17 @@ import React from 'react';
 import { type SubCategory, type MainCategory, type CategoryConfig } from '../types';
 import { MAIN_CATEGORIES } from '../config/sheets';
 
-interface CategoryTabsProps {
+interface MainCategoryTabsProps {
     mainCategory: MainCategory;
-    activeSubCategory: SubCategory;
-    subcategories: CategoryConfig[];
     onMainCategoryChange: (category: MainCategory) => void;
-    onSubCategoryChange: (category: SubCategory) => void;
 }
 
-export const CategoryTabs: React.FC<CategoryTabsProps> = ({
+export const MainCategoryTabs: React.FC<MainCategoryTabsProps> = ({
     mainCategory,
-    activeSubCategory,
-    subcategories,
-    onMainCategoryChange,
-    onSubCategoryChange
+    onMainCategoryChange
 }) => {
     return (
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {/* Main Category Pills (MW, LW, CW) */}
+        <div className="flex items-center gap-2">
             {MAIN_CATEGORIES.map((cat) => (
                 <button
                     key={cat.id}
@@ -37,11 +30,23 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
                     {cat.name}
                 </button>
             ))}
+        </div>
+    );
+};
 
-            {/* Separator */}
-            <div className="h-6 w-px bg-border mx-2" />
+interface SubCategoryTabsProps {
+    activeSubCategory: SubCategory;
+    subcategories: CategoryConfig[];
+    onSubCategoryChange: (category: SubCategory) => void;
+}
 
-            {/* Sub Category Pills (Tops, Shorts, etc.) */}
+export const SubCategoryTabs: React.FC<SubCategoryTabsProps> = ({
+    activeSubCategory,
+    subcategories,
+    onSubCategoryChange
+}) => {
+    return (
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
             {subcategories.map((cat: CategoryConfig) => (
                 <button
                     key={cat.id}
@@ -59,6 +64,40 @@ export const CategoryTabs: React.FC<CategoryTabsProps> = ({
                     {cat.name}
                 </button>
             ))}
+        </div>
+    );
+};
+
+interface CategoryTabsProps {
+    mainCategory: MainCategory;
+    activeSubCategory: SubCategory;
+    subcategories: CategoryConfig[];
+    onMainCategoryChange: (category: MainCategory) => void;
+    onSubCategoryChange: (category: SubCategory) => void;
+}
+
+export const CategoryTabs: React.FC<CategoryTabsProps> = ({
+    mainCategory,
+    activeSubCategory,
+    subcategories,
+    onMainCategoryChange,
+    onSubCategoryChange
+}) => {
+    return (
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <MainCategoryTabs
+                mainCategory={mainCategory}
+                onMainCategoryChange={onMainCategoryChange}
+            />
+
+            {/* Separator */}
+            <div className="h-6 w-px bg-border mx-2" />
+
+            <SubCategoryTabs
+                activeSubCategory={activeSubCategory}
+                subcategories={subcategories}
+                onSubCategoryChange={onSubCategoryChange}
+            />
         </div>
     );
 };
