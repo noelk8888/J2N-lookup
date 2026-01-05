@@ -68,16 +68,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
 
-                if (session?.user?.email) {
-                    await checkApproval(session.user.email);
-                } else {
+                // Only check approval on sign-in events, not on token refresh
+                // Token refresh should preserve the existing approval state
+                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+                    if (session?.user?.email) {
+                        await checkApproval(session.user.email);
+                    } else {
+                        setIsApproved(false);
+                        setIsAdmin(false);
+                    }
+                } else if (event === 'SIGNED_OUT') {
                     setIsApproved(false);
                     setIsAdmin(false);
                 }
+                // For TOKEN_REFRESHED and other events, keep existing approval state
+
                 setIsLoading(false);
             }
         );
