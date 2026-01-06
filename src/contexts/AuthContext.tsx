@@ -24,32 +24,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if email is in approved_emails table
     const checkApproval = async (email: string): Promise<void> => {
         try {
-            // Add timeout to prevent hanging
-            const timeoutPromise = new Promise<null>((_, reject) =>
-                setTimeout(() => reject(new Error('Timeout')), 5000)
-            );
+            // Check cache first
+            const cacheKey = `approval_${email}`;
+            const cached = sessionStorage.getItem(cacheKey);
 
-            const queryPromise = supabase
+            if (cached) {
+                const { isApproved: cachedApproved, isAdmin: cachedAdmin } = JSON.parse(cached);
+                console.log('Using cached approval status for:', email);
+                setIsApproved(cachedApproved);
+                setIsAdmin(cachedAdmin);
+                return;
+            }
+
+            // Query database without timeout - let Supabase handle its own timeout
+            const { data, error } = await supabase
                 .from('approved_emails')
                 .select('is_admin')
                 .eq('email', email)
                 .single();
 
-            const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as Awaited<typeof queryPromise>;
-
             if (error || !data) {
                 console.log('Email not approved or error:', error?.message);
                 setIsApproved(false);
                 setIsAdmin(false);
+                // Don't cache negative results to allow retry
                 return;
             }
+
+            // Cache the positive result
+            const approvalData = {
+                isApproved: true,
+                isAdmin: data.is_admin || false
+            };
+            sessionStorage.setItem(cacheKey, JSON.stringify(approvalData));
 
             setIsApproved(true);
             setIsAdmin(data.is_admin || false);
         } catch (err) {
             console.error('Error checking approval:', err);
-            setIsApproved(false);
-            setIsAdmin(false);
+            // On error, check if we have a cached value to fall back to
+            const cacheKey = `approval_${email}`;
+            const cached = sessionStorage.getItem(cacheKey);
+
+            if (cached) {
+                const { isApproved: cachedApproved, isAdmin: cachedAdmin } = JSON.parse(cached);
+                console.log('Falling back to cached approval due to error');
+                setIsApproved(cachedApproved);
+                setIsAdmin(cachedAdmin);
+            } else {
+                // Only deny access if there's no cache to fall back to
+                setIsApproved(false);
+                setIsAdmin(false);
+            }
         }
     };
 
@@ -69,12 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                console.log('Auth state change event:', event);
                 setSession(session);
                 setUser(session?.user ?? null);
 
-                // Only check approval on sign-in events, not on token refresh
-                // Token refresh should preserve the existing approval state
-                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+                // Only check approval on SIGNED_IN event
+                // For all other events (TOKEN_REFRESHED, USER_UPDATED, etc.), preserve existing state
+                if (event === 'SIGNED_IN') {
                     if (session?.user?.email) {
                         await checkApproval(session.user.email);
                     } else {
@@ -84,8 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 } else if (event === 'SIGNED_OUT') {
                     setIsApproved(false);
                     setIsAdmin(false);
+                    // Clear cache on sign out
+                    if (session?.user?.email) {
+                        sessionStorage.removeItem(`approval_${session.user.email}`);
+                    }
                 }
-                // For TOKEN_REFRESHED and other events, keep existing approval state
+                // For TOKEN_REFRESHED, USER_UPDATED, and other events, keep existing approval state
 
                 setIsLoading(false);
             }
@@ -108,6 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const signOut = async () => {
+        // Clear approval cache
+        if (user?.email) {
+            sessionStorage.removeItem(`approval_${user.email}`);
+        }
+
         const { error } = await supabase.auth.signOut();
         if (error) {
             console.error('Error signing out:', error);
