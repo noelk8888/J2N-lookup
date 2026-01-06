@@ -72,8 +72,8 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
 
                 {/* Column J and L - last line */}
                 <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">
-                    {listing.colJ && <div>Col J: {listing.colJ}</div>}
-                    {listing.colL && <div>Col L: {listing.colL}</div>}
+                    {listing.colJ && <div>{listing.colJ}</div>}
+                    {listing.colL && <div>{listing.colL}</div>}
                 </div>
             </div>
         </div>
