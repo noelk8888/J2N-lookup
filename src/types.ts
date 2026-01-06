@@ -2,6 +2,8 @@ export interface Listing {
     id: string;
     photoLink: string;
     itemCode: string;
+    colJ: string;
+    colL: string;
     cost: number;
     statusGood: string;
     statusRepair: string;

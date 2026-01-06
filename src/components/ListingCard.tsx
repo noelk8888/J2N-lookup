@@ -69,6 +69,12 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
                     {listing.attrH && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">H: {listing.attrH}</span>}
                     {listing.attrM && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">M: {listing.attrM}</span>}
                 </div>
+
+                {/* Column J and L - last line */}
+                <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">
+                    {listing.colJ && <div>Col J: {listing.colJ}</div>}
+                    {listing.colL && <div>Col L: {listing.colL}</div>}
+                </div>
             </div>
         </div>
     );

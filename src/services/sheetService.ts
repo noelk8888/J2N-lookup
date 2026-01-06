@@ -55,6 +55,8 @@ export const fetchCategoryData = async (sheetId: string, gid: string): Promise<L
                         return {
                             id: `${row[12]}-${index}`, // ItemCode + index as fallback ID
                             photoLink: transformDriveLink(row[1]), // Col B -> Index 1
+                            colJ: row[9], // Col J -> Index 9
+                            colL: row[11], // Col L -> Index 11
                             itemCode: row[12], // Col M -> Index 12
                             cost: parseNumber(row[22]), // Col W -> Index 22
 
