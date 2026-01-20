@@ -4,9 +4,11 @@ import { ShoppingBag, Clock, AlertTriangle, CheckCircle, HelpCircle } from 'luci
 
 interface ListingCardProps {
     listing: Listing;
+    showAll: boolean;
 }
 
-export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
+export const ListingCard: React.FC<ListingCardProps> = ({ listing, showAll }) => {
+    console.log('ListingCard rendering with showAll:', showAll, 'for item:', listing.itemCode);
     const [imageError, setImageError] = useState(false);
 
     const handleImageClick = () => {
@@ -49,9 +51,11 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
 
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold text-lg">{listing.itemCode}</h3>
-                    <span className="font-mono text-sm bg-secondary px-2 py-1 rounded">
-                        {listing.cost > 0 ? listing.cost.toLocaleString() : '-'}
-                    </span>
+                    {showAll && (
+                        <span className="font-mono text-sm bg-secondary px-2 py-1 rounded">
+                            {listing.cost > 0 ? listing.cost.toLocaleString() : '-'}
+                        </span>
+                    )}
                 </div>
 
                 {/* Status section - increased font size */}
@@ -63,12 +67,14 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
                 </div>
 
                 {/* Attributes - increased font size */}
-                <div className="flex flex-wrap gap-1 mt-2">
-                    {listing.attrS && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">S: {listing.attrS}</span>}
-                    {listing.attrW && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">W: {listing.attrW}</span>}
-                    {listing.attrH && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">H: {listing.attrH}</span>}
-                    {listing.attrM && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">M: {listing.attrM}</span>}
-                </div>
+                {showAll && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {listing.attrS && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">S: {listing.attrS}</span>}
+                        {listing.attrW && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">W: {listing.attrW}</span>}
+                        {listing.attrH && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">H: {listing.attrH}</span>}
+                        {listing.attrM && <span className="px-1.5 py-0.5 bg-accent rounded text-xs font-medium">M: {listing.attrM}</span>}
+                    </div>
+                )}
 
                 {/* Column J and L - last line */}
                 <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">

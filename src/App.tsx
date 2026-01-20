@@ -25,7 +25,7 @@ function AppContent() {
   const [activeSubCategory, setActiveSubCategory] = useState<SubCategory>('TOPS');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
-  const [sortField, setSortField] = useState<SortField>('none');
+  const [sortField, setSortField] = useState<SortField>('quantity');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
@@ -40,8 +40,16 @@ function AppContent() {
     staleTime: 1000 * 60 * 5,
   });
 
-  // Item codes that should always appear at the end of the list
-  const alwaysAtEnd = ['D2 MW A 120', 'D2 MW B 121+', 'D2 LW A', 'D2 LW B', 'D2 CW A'];
+  // Helper to identify special items that should always be shown and appear at the end
+  const isSpecialItem = (item: any) => {
+    const code = item.itemCode.toUpperCase();
+    return code.includes('CONTINUOUS') || code.includes('D2');
+  };
+
+  // Helper to identify items that should be at the end of the list
+  const isEndItem = (item: any) => {
+    return isSpecialItem(item) || item.totalQuantity === 0;
+  };
 
   // Client-side filtering
   const filteredListings = useMemo(() => {
@@ -53,16 +61,19 @@ function AppContent() {
           (item.cost && item.cost.toString().includes(q))
         );
       }
+      // If showAll is true, show everything
       if (showAll) return true;
-      return item.totalQuantity > 0;
+
+      // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
+      return item.totalQuantity > 0 || isSpecialItem(item);
     });
   }, [listings, searchQuery, showAll]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
     // Separate items that should always be at the end
-    const regularItems = filteredListings.filter(item => !alwaysAtEnd.includes(item.itemCode));
-    const endItems = filteredListings.filter(item => alwaysAtEnd.includes(item.itemCode));
+    const regularItems = filteredListings.filter(item => !isEndItem(item));
+    const endItems = filteredListings.filter(item => isEndItem(item));
 
     // Sort regular items
     let sortedRegular = regularItems;
@@ -291,6 +302,7 @@ function AppContent() {
           listings={sortedListings}
           isLoading={isLoading}
           error={error as Error | null}
+          showAll={showAll}
         />
       </main>
 

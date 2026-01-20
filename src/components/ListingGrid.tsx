@@ -7,9 +7,10 @@ interface ListingGridProps {
     listings: Listing[];
     isLoading: boolean;
     error: Error | null;
+    showAll: boolean;
 }
 
-export const ListingGrid: React.FC<ListingGridProps> = ({ listings, isLoading, error }) => {
+export const ListingGrid: React.FC<ListingGridProps> = ({ listings, isLoading, error, showAll }) => {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-muted-foreground">
@@ -39,7 +40,7 @@ export const ListingGrid: React.FC<ListingGridProps> = ({ listings, isLoading, e
     return (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {listings.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} />
+                <ListingCard key={listing.id} listing={listing} showAll={showAll} />
             ))}
         </div>
     );
