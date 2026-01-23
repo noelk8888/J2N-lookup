@@ -40,16 +40,16 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, showAll }) =>
             </div>
 
             <div className="p-4">
-                {/* Quantity and Last Date Pills */}
+                {/* Quantity and Last Date */}
                 {(listing.totalQuantity > 0 || listing.lastDate) && (
-                    <div className="mb-2 flex flex-wrap gap-2">
+                    <div className="mb-2 flex items-center gap-2">
                         {listing.totalQuantity > 0 && (
                             <span className="inline-block bg-blue-100 text-blue-800 text-base font-semibold px-4 py-1.5 rounded-full">
                                 Qty: {listing.totalQuantity}
                             </span>
                         )}
                         {listing.lastDate && (
-                            <span className="inline-block bg-blue-100 text-blue-800 text-base font-semibold px-4 py-1.5 rounded-full">
+                            <span className="text-xs text-muted-foreground">
                                 {listing.lastDate}
                             </span>
                         )}
