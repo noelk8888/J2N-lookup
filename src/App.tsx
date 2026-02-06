@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getSubcategories, getMainCategoryConfig } from './config/sheets';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { getSubcategories, getMainCategoryConfig, MAIN_CATEGORIES } from './config/sheets';
 import { fetchCategoryData } from './services/sheetService';
 import { type SubCategory, type MainCategory } from './types';
 import { CategoryTabs, MainCategoryTabs, SubCategoryTabs } from './components/CategoryTabs';
@@ -33,12 +33,53 @@ function AppContent() {
   const subcategories = mainCategoryConfig?.subcategories || [];
   const activeConfig = subcategories.find(c => c.id === activeSubCategory);
 
+  // Fetch current category data
   const { data: listings = [], isLoading, error } = useQuery({
     queryKey: ['listings', mainCategory, activeSubCategory],
     queryFn: () => fetchCategoryData(mainCategoryConfig?.sheetId || '', activeConfig?.gid || ''),
     enabled: !!activeConfig?.gid,
     staleTime: 1000 * 60 * 5,
   });
+
+  // Build list of all sheet/gid combinations for global search
+  const allSheetConfigs = useMemo(() => {
+    const configs: { sheetId: string; gid: string; category: string; subcategory: string }[] = [];
+    MAIN_CATEGORIES.forEach(mainCat => {
+      if (mainCat.enabled) {
+        mainCat.subcategories.forEach(subCat => {
+          if (subCat.gid) {
+            configs.push({
+              sheetId: mainCat.sheetId,
+              gid: subCat.gid,
+              category: mainCat.id,
+              subcategory: subCat.id
+            });
+          }
+        });
+      }
+    });
+    return configs;
+  }, []);
+
+  // Fetch all sheets for global search (only when searching)
+  const allSheetsQueries = useQueries({
+    queries: allSheetConfigs.map(config => ({
+      queryKey: ['listings', config.category, config.subcategory],
+      queryFn: () => fetchCategoryData(config.sheetId, config.gid),
+      enabled: searchQuery.length > 0, // Only fetch when searching
+      staleTime: 1000 * 60 * 5,
+    }))
+  });
+
+  // Combine all data for global search
+  const allListings = useMemo(() => {
+    if (!searchQuery) return [];
+    return allSheetsQueries
+      .filter(q => q.data)
+      .flatMap(q => q.data || []);
+  }, [allSheetsQueries, searchQuery]);
+
+  const isSearchLoading = searchQuery.length > 0 && allSheetsQueries.some(q => q.isLoading);
 
   // Helper to identify special items that should always be shown and appear at the end
   const isSpecialItem = (item: any) => {
@@ -53,12 +94,17 @@ function AppContent() {
 
   // Client-side filtering
   const filteredListings = useMemo(() => {
-    return listings.filter(item => {
+    // When searching, use all listings from all sheets; otherwise use current category
+    const sourceListings = searchQuery ? allListings : listings;
+
+    return sourceListings.filter(item => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
+        // Priority search: Item Code (Col M), Cost (Col W), Brand (Col J)
         return (
           item.itemCode.toLowerCase().includes(q) ||
-          (item.cost && item.cost.toString().includes(q))
+          (item.cost && item.cost.toString().includes(q)) ||
+          (item.brand && item.brand.toLowerCase().includes(q))
         );
       }
       // If showAll is true, show everything
@@ -67,7 +113,7 @@ function AppContent() {
       // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
       return item.totalQuantity > 0 || isSpecialItem(item);
     });
-  }, [listings, searchQuery, showAll]);
+  }, [listings, allListings, searchQuery, showAll]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
@@ -107,7 +153,7 @@ function AppContent() {
     if (subs.length > 0) {
       setActiveSubCategory(subs[0].id);
     }
-    setSearchQuery('');
+    // Don't clear search - it searches all sheets globally
   };
 
   const toggleSortDirection = () => {
@@ -128,7 +174,7 @@ function AppContent() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search by code or price..."
+                  placeholder="Search all sheets..."
                   className="w-full pl-10 pr-10 py-2 rounded-md border bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary focus:outline-none transition-all"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -188,7 +234,7 @@ function AppContent() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search by code or price..."
+                placeholder="Search all sheets..."
                 className="w-full pl-10 pr-10 py-2 rounded-md border bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary focus:outline-none transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -211,10 +257,7 @@ function AppContent() {
                 activeSubCategory={activeSubCategory}
                 subcategories={subcategories}
                 onMainCategoryChange={handleMainCategoryChange}
-                onSubCategoryChange={(c) => {
-                  setActiveSubCategory(c);
-                  setSearchQuery('');
-                }}
+                onSubCategoryChange={setActiveSubCategory}
               />
 
               {/* Sort Section */}
@@ -287,10 +330,7 @@ function AppContent() {
               <SubCategoryTabs
                 activeSubCategory={activeSubCategory}
                 subcategories={subcategories}
-                onSubCategoryChange={(c) => {
-                  setActiveSubCategory(c);
-                  setSearchQuery('');
-                }}
+                onSubCategoryChange={setActiveSubCategory}
               />
             </div>
           </div>
@@ -300,7 +340,7 @@ function AppContent() {
       <main className="container mx-auto px-4 py-6">
         <ListingGrid
           listings={sortedListings}
-          isLoading={isLoading}
+          isLoading={isLoading || isSearchLoading}
           error={error as Error | null}
           showAll={showAll}
         />

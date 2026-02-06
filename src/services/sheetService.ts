@@ -55,7 +55,7 @@ export const fetchCategoryData = async (sheetId: string, gid: string): Promise<L
                         return {
                             id: `${row[12]}-${index}`, // ItemCode + index as fallback ID
                             photoLink: transformDriveLink(row[1]), // Col B -> Index 1
-                            colJ: row[9], // Col J -> Index 9
+                            brand: row[9], // Col J -> Index 9 (Brand)
                             colL: row[11], // Col L -> Index 11
                             itemCode: row[12], // Col M -> Index 12
                             cost: parseNumber(row[22]), // Col W -> Index 22
@@ -68,6 +68,7 @@ export const fetchCategoryData = async (sheetId: string, gid: string): Promise<L
                             statusPending: row[34], // Col AI
                             statusSamples: row[35], // Col AJ
                             totalQuantity: parseNumber(row[36]), // Col AK
+                            styleLink: row[37], // Col AL -> Style link
 
                             attrS: row[39], // Col AN
                             attrW: row[40], // Col AO

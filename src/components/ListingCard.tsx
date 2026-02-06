@@ -17,6 +17,12 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, showAll }) =>
         }
     };
 
+    const handleStyleCodeClick = () => {
+        if (listing.styleLink) {
+            window.open(listing.styleLink, '_blank');
+        }
+    };
+
     return (
         <div className="bg-card text-card-foreground rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             <div
@@ -57,7 +63,12 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, showAll }) =>
                 )}
 
                 <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg">{listing.itemCode}</h3>
+                    <h3
+                        className={`font-bold text-lg ${listing.styleLink ? 'cursor-pointer hover:text-primary hover:underline' : ''}`}
+                        onClick={handleStyleCodeClick}
+                    >
+                        {listing.itemCode}
+                    </h3>
                     {showAll && (
                         <span className="font-mono text-sm bg-secondary px-2 py-1 rounded">
                             {listing.cost > 0 ? listing.cost.toLocaleString() : '-'}
@@ -83,9 +94,9 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, showAll }) =>
                     </div>
                 )}
 
-                {/* Column J and L - last line */}
+                {/* Brand and Column L - last line */}
                 <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">
-                    {listing.colJ && <div>{listing.colJ}</div>}
+                    {listing.brand && <div>{listing.brand}</div>}
                     {listing.colL && <div>{listing.colL}</div>}
                 </div>
             </div>
