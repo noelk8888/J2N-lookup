@@ -61,23 +61,21 @@ function AppContent() {
     return configs;
   }, []);
 
-  // Fetch all sheets for global search (only when searching)
+  // Fetch all sheets for global search (prefetch all data)
   const allSheetsQueries = useQueries({
     queries: allSheetConfigs.map(config => ({
       queryKey: ['listings', config.category, config.subcategory],
       queryFn: () => fetchCategoryData(config.sheetId, config.gid),
-      enabled: searchQuery.length > 0, // Only fetch when searching
       staleTime: 1000 * 60 * 5,
     }))
   });
 
   // Combine all data for global search
   const allListings = useMemo(() => {
-    if (!searchQuery) return [];
     return allSheetsQueries
       .filter(q => q.data)
       .flatMap(q => q.data || []);
-  }, [allSheetsQueries, searchQuery]);
+  }, [allSheetsQueries]);
 
   const isSearchLoading = searchQuery.length > 0 && allSheetsQueries.some(q => q.isLoading);
 
@@ -92,6 +90,9 @@ function AppContent() {
     return isSpecialItem(item) || item.totalQuantity === 0;
   };
 
+  // Check if search query is exactly 5 digits
+  const isFiveDigitSearch = /^\d{5}$/.test(searchQuery.trim());
+
   // Client-side filtering
   const filteredListings = useMemo(() => {
     // When searching, use all listings from all sheets; otherwise use current category
@@ -99,8 +100,14 @@ function AppContent() {
 
     return sourceListings.filter(item => {
       if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        // Priority search: Item Code (Col M), Cost (Col W), Brand (Col J)
+        const q = searchQuery.toLowerCase().trim();
+
+        // If 5 digits entered, search only in Item Code (Col M)
+        if (isFiveDigitSearch) {
+          return item.itemCode.toLowerCase().includes(q);
+        }
+
+        // Otherwise: Priority search Item Code (Col M), Cost (Col W), Brand (Col J)
         return (
           item.itemCode.toLowerCase().includes(q) ||
           (item.cost && item.cost.toString().includes(q)) ||
@@ -113,7 +120,7 @@ function AppContent() {
       // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
       return item.totalQuantity > 0 || isSpecialItem(item);
     });
-  }, [listings, allListings, searchQuery, showAll]);
+  }, [listings, allListings, searchQuery, showAll, isFiveDigitSearch]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
