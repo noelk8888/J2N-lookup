@@ -36,10 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // Query database without timeout - let Supabase handle its own timeout
+            // Query database - only select email since is_admin column may not exist
             const { data, error } = await supabase
                 .from('approved_emails')
-                .select('is_admin')
+                .select('email')
                 .eq('email', email)
                 .single();
 
@@ -51,15 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // Cache the positive result
+            // Email exists in approved list - user is approved
+            // For admin check, use a hardcoded list since table doesn't have is_admin column
+            const adminEmails = ['noelkiu@gmail.com', 'iamnoel888@gmail.com'];
+            const adminStatus = adminEmails.includes(email.toLowerCase());
+
             const approvalData = {
                 isApproved: true,
-                isAdmin: data.is_admin || false
+                isAdmin: adminStatus
             };
             sessionStorage.setItem(cacheKey, JSON.stringify(approvalData));
 
             setIsApproved(true);
-            setIsAdmin(data.is_admin || false);
+            setIsAdmin(adminStatus);
         } catch (err) {
             console.error('Error checking approval:', err);
             // On error, check if we have a cached value to fall back to
