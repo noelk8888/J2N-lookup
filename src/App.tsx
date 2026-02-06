@@ -61,23 +61,33 @@ function AppContent() {
     return configs;
   }, []);
 
-  // Fetch all sheets for global search (prefetch all data)
+  // Only fetch other sheets when user starts searching (min 2 chars)
+  const isSearching = searchQuery.length >= 2;
+
+  // Fetch all sheets for global search (only when actively searching)
   const allSheetsQueries = useQueries({
     queries: allSheetConfigs.map(config => ({
       queryKey: ['listings', config.category, config.subcategory],
       queryFn: () => fetchCategoryData(config.sheetId, config.gid),
+      enabled: isSearching,
       staleTime: 1000 * 60 * 5,
     }))
   });
 
-  // Combine all data for global search
-  const allListings = useMemo(() => {
-    return allSheetsQueries
-      .filter(q => q.data)
-      .flatMap(q => q.data || []);
-  }, [allSheetsQueries]);
+  // Check loading state
+  const isSearchLoading = isSearching && allSheetsQueries.some(q => q.isLoading);
 
-  const isSearchLoading = searchQuery.length > 0 && allSheetsQueries.some(q => q.isLoading);
+  // Combine all data for global search - compute inline to avoid memoization issues
+  const getAllListings = () => {
+    if (!isSearching) return [];
+    const results: any[] = [];
+    for (const query of allSheetsQueries) {
+      if (query.data) {
+        results.push(...query.data);
+      }
+    }
+    return results;
+  };
 
   // Helper to identify special items that should always be shown and appear at the end
   const isSpecialItem = (item: any) => {
@@ -95,8 +105,8 @@ function AppContent() {
 
   // Client-side filtering
   const filteredListings = useMemo(() => {
-    // When searching, use all listings from all sheets; otherwise use current category
-    const sourceListings = searchQuery ? allListings : listings;
+    // When searching (2+ chars), use all listings from all sheets; otherwise use current category
+    const sourceListings = isSearching ? getAllListings() : listings;
 
     return sourceListings.filter(item => {
       if (searchQuery) {
@@ -120,7 +130,8 @@ function AppContent() {
       // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
       return item.totalQuantity > 0 || isSpecialItem(item);
     });
-  }, [listings, allListings, searchQuery, showAll, isFiveDigitSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allSheetsQueries]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
