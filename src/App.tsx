@@ -419,33 +419,33 @@ function AppContent() {
       {/* Fixed Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-[100] bg-background border-t shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.3)]">
         <div className="container mx-auto px-2 py-3 md:px-4">
-          <div className="flex flex-row justify-around sm:justify-center sm:gap-12 items-center text-sm md:text-base font-semibold">
+          <div className="flex flex-row flex-nowrap justify-start lg:justify-center items-center gap-3 sm:gap-6 overflow-x-auto scrollbar-hide text-xs sm:text-sm md:text-base font-semibold whitespace-nowrap pb-1">
             {/* Top row: Main category totals */}
-            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+            <div className="flex flex-row items-center gap-1.5 shrink-0">
               <span className="text-primary font-bold">TOTAL:</span>
               <span className="text-foreground">{Math.round(globalTotals.ALL.pieces).toLocaleString()} pcs</span>
-              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-muted-foreground">|</span>
               <span className="text-green-600 dark:text-green-400 font-bold">₱{Math.round(globalTotals.ALL.amount).toLocaleString()}</span>
             </div>
-            <div className="w-px h-8 bg-border hidden sm:block"></div>
-            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+            <div className="w-px h-4 sm:h-5 bg-border shrink-0"></div>
+            <div className="flex flex-row items-center gap-1.5 shrink-0">
               <span className="text-primary font-bold">MW:</span>
               <span className="text-foreground">{Math.round(globalTotals.MW.pieces).toLocaleString()} pcs</span>
-              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-muted-foreground">|</span>
               <span className="text-green-600 dark:text-green-400">₱{Math.round(globalTotals.MW.amount).toLocaleString()}</span>
             </div>
-            <div className="w-px h-8 bg-border hidden sm:block"></div>
-            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+            <div className="w-px h-4 sm:h-5 bg-border shrink-0"></div>
+            <div className="flex flex-row items-center gap-1.5 shrink-0">
               <span className="text-primary font-bold">LW:</span>
               <span className="text-foreground">{Math.round(globalTotals.LW.pieces).toLocaleString()} pcs</span>
-              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-muted-foreground">|</span>
               <span className="text-green-600 dark:text-green-400">₱{Math.round(globalTotals.LW.amount).toLocaleString()}</span>
             </div>
-            <div className="w-px h-8 bg-border hidden sm:block"></div>
-            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+            <div className="w-px h-4 sm:h-5 bg-border shrink-0"></div>
+            <div className="flex flex-row items-center gap-1.5 shrink-0">
               <span className="text-primary font-bold">CW:</span>
               <span className="text-foreground">{Math.round(globalTotals.CW.pieces).toLocaleString()} pcs</span>
-              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-muted-foreground">|</span>
               <span className="text-green-600 dark:text-green-400">₱{Math.round(globalTotals.CW.amount).toLocaleString()}</span>
             </div>
           </div>
