@@ -406,21 +406,21 @@ function AppContent() {
                 <span className="text-primary font-bold">MW:</span>
                 <span className="text-foreground">{Math.round(currentTotals.MW.pieces).toLocaleString()} pcs</span>
                 <span className="text-muted-foreground hidden sm:inline">|</span>
-                <span className="text-green-600 dark:text-green-400">฿{Math.round(currentTotals.MW.amount).toLocaleString()}</span>
+                <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.MW.amount).toLocaleString()}</span>
               </div>
               <div className="w-px h-8 bg-border hidden sm:block"></div>
               <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
                 <span className="text-primary font-bold">LW:</span>
                 <span className="text-foreground">{Math.round(currentTotals.LW.pieces).toLocaleString()} pcs</span>
                 <span className="text-muted-foreground hidden sm:inline">|</span>
-                <span className="text-green-600 dark:text-green-400">฿{Math.round(currentTotals.LW.amount).toLocaleString()}</span>
+                <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.LW.amount).toLocaleString()}</span>
               </div>
               <div className="w-px h-8 bg-border hidden sm:block"></div>
               <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
                 <span className="text-primary font-bold">CW:</span>
                 <span className="text-foreground">{Math.round(currentTotals.CW.pieces).toLocaleString()} pcs</span>
                 <span className="text-muted-foreground hidden sm:inline">|</span>
-                <span className="text-green-600 dark:text-green-400">฿{Math.round(currentTotals.CW.amount).toLocaleString()}</span>
+                <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.CW.amount).toLocaleString()}</span>
               </div>
             </div>
             
@@ -429,7 +429,7 @@ function AppContent() {
               <span className="font-bold">{mainCategory}-{activeSubCategory}:</span>
               <span className="text-foreground">{Math.round(currentTotals.activeSub.pieces).toLocaleString()} pcs</span>
               <span className="text-muted-foreground">-</span>
-              <span className="text-green-600 dark:text-green-400">฿{Math.round(currentTotals.activeSub.amount).toLocaleString()}</span>
+              <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.activeSub.amount).toLocaleString()}</span>
             </div>
           </div>
         </div>
