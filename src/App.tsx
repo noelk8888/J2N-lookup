@@ -173,6 +173,7 @@ function AppContent() {
   // Calculate global totals for the sticky footer
   const globalTotals = useMemo(() => {
     const totals = {
+      ALL: { pieces: 0, amount: 0 },
       MW: { pieces: 0, amount: 0 },
       LW: { pieces: 0, amount: 0 },
       CW: { pieces: 0, amount: 0 }
@@ -181,6 +182,9 @@ function AppContent() {
       const cat = item.mainCategory as 'MW' | 'LW' | 'CW';
       const q = item.totalQuantity || 0;
       const amt = q * (item.cost || 0);
+
+      totals.ALL.pieces += q;
+      totals.ALL.amount += amt;
 
       if (cat && totals[cat]) {
         totals[cat].pieces += q;
@@ -417,6 +421,13 @@ function AppContent() {
         <div className="container mx-auto px-2 py-3 md:px-4">
           <div className="flex flex-row justify-around sm:justify-center sm:gap-12 items-center text-sm md:text-base font-semibold">
             {/* Top row: Main category totals */}
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <span className="text-primary font-bold">TOTAL:</span>
+              <span className="text-foreground">{Math.round(globalTotals.ALL.pieces).toLocaleString()} pcs</span>
+              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-green-600 dark:text-green-400 font-bold">₱{Math.round(globalTotals.ALL.amount).toLocaleString()}</span>
+            </div>
+            <div className="w-px h-8 bg-border hidden sm:block"></div>
             <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
               <span className="text-primary font-bold">MW:</span>
               <span className="text-foreground">{Math.round(globalTotals.MW.pieces).toLocaleString()} pcs</span>
