@@ -67,7 +67,7 @@ function AppContent() {
   // Only fetch other sheets when user starts searching (min 2 chars)
   const isSearching = searchQuery.length >= 2;
 
-  // Fetch all sheets for global search (only when actively searching)
+  // Fetch all sheets for global search and footer totals
   const allSheetsQueries = useQueries({
     queries: allSheetConfigs.map(config => ({
       queryKey: ['listings', config.category, config.subcategory],
@@ -75,7 +75,7 @@ function AppContent() {
         const data = await fetchCategoryData(config.sheetId, config.gid);
         return data.map(item => ({ ...item, mainCategory: config.category, subCategory: config.subcategory }));
       },
-      enabled: isSearching,
+      enabled: true,
       staleTime: 1000 * 60 * 5,
     }))
   });
@@ -83,9 +83,8 @@ function AppContent() {
   // Check loading state
   const isSearchLoading = isSearching && allSheetsQueries.some(q => q.isLoading);
 
-  // Combine all data for global search - compute inline to avoid memoization issues
-  const getAllListings = () => {
-    if (!isSearching) return [];
+  // Combine all data for global search and totals
+  const allListingsArray = useMemo(() => {
     const results: any[] = [];
     for (const query of allSheetsQueries) {
       if (query.data) {
@@ -93,7 +92,7 @@ function AppContent() {
       }
     }
     return results;
-  };
+  }, [allSheetsQueries]);
 
   // Helper to identify special items that should always be shown and appear at the end
   const isSpecialItem = (item: any) => {
@@ -112,7 +111,7 @@ function AppContent() {
   // Client-side filtering
   const filteredListings = useMemo(() => {
     // When searching (2+ chars), use all listings from all sheets; otherwise use current category
-    const sourceListings = isSearching ? getAllListings() : listings;
+    const sourceListings = isSearching ? allListingsArray : listings;
 
     return sourceListings.filter(item => {
       if (searchQuery) {
@@ -133,11 +132,11 @@ function AppContent() {
       // If showAll is true, show everything
       if (showAll) return true;
 
-      // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
+    // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
       return item.totalQuantity > 0 || isSpecialItem(item);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allSheetsQueries]);
+  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allListingsArray]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
@@ -171,15 +170,14 @@ function AppContent() {
     return [...sortedRegular, ...endItems];
   }, [filteredListings, sortField, sortDirection]);
 
-  // Calculate totals for the sticky footer
-  const currentTotals = useMemo(() => {
+  // Calculate global totals for the sticky footer
+  const globalTotals = useMemo(() => {
     const totals = {
       MW: { pieces: 0, amount: 0 },
       LW: { pieces: 0, amount: 0 },
-      CW: { pieces: 0, amount: 0 },
-      activeSub: { pieces: 0, amount: 0 }
+      CW: { pieces: 0, amount: 0 }
     };
-    filteredListings.forEach(item => {
+    allListingsArray.forEach(item => {
       const cat = item.mainCategory as 'MW' | 'LW' | 'CW';
       const q = item.totalQuantity || 0;
       const amt = q * (item.cost || 0);
@@ -188,14 +186,22 @@ function AppContent() {
         totals[cat].pieces += q;
         totals[cat].amount += amt;
       }
-
-      if (item.mainCategory === mainCategory && item.subCategory === activeSubCategory) {
-        totals.activeSub.pieces += q;
-        totals.activeSub.amount += amt;
-      }
     });
     return totals;
-  }, [filteredListings, mainCategory, activeSubCategory]);
+  }, [allListingsArray]);
+
+  // Calculate active view totals for the chosen category / search
+  const activeViewTotals = useMemo(() => {
+    let pieces = 0;
+    let amount = 0;
+    filteredListings.forEach(item => {
+      const q = item.totalQuantity || 0;
+      const amt = q * (item.cost || 0);
+      pieces += q;
+      amount += amt;
+    });
+    return { pieces, amount };
+  }, [filteredListings]);
 
   const handleMainCategoryChange = (cat: MainCategory) => {
     setMainCategory(cat);
@@ -388,6 +394,16 @@ function AppContent() {
       </header>
 
       <main className="container mx-auto px-4 py-6 flex-1 pb-24">
+        {/* Active subcategory breakdown / Search breakdown */}
+        <div className="mb-4 flex flex-row items-center gap-2 text-sm md:text-base font-semibold text-muted-foreground">
+          <span className="font-bold text-slate-600 dark:text-slate-300 uppercase shrink-0">
+            {isSearching ? 'SEARCH RESULTS' : `${mainCategory}-${activeSubCategory}`}:
+          </span>
+          <span className="text-foreground">{Math.round(activeViewTotals.pieces).toLocaleString()} pcs</span>
+          <span className="text-muted-foreground">-</span>
+          <span className="text-green-600 dark:text-green-400 font-bold">₱{Math.round(activeViewTotals.amount).toLocaleString()}</span>
+        </div>
+
         <ListingGrid
           listings={sortedListings}
           isLoading={isLoading || isSearchLoading}
@@ -399,37 +415,27 @@ function AppContent() {
       {/* Fixed Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-[100] bg-background border-t shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.3)]">
         <div className="container mx-auto px-2 py-3 md:px-4">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-row justify-around sm:justify-center sm:gap-12 items-center text-sm md:text-base font-semibold">
             {/* Top row: Main category totals */}
-            <div className="flex flex-row justify-around sm:justify-center sm:gap-12 items-center text-sm md:text-base font-semibold">
-              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
-                <span className="text-primary font-bold">MW:</span>
-                <span className="text-foreground">{Math.round(currentTotals.MW.pieces).toLocaleString()} pcs</span>
-                <span className="text-muted-foreground hidden sm:inline">|</span>
-                <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.MW.amount).toLocaleString()}</span>
-              </div>
-              <div className="w-px h-8 bg-border hidden sm:block"></div>
-              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
-                <span className="text-primary font-bold">LW:</span>
-                <span className="text-foreground">{Math.round(currentTotals.LW.pieces).toLocaleString()} pcs</span>
-                <span className="text-muted-foreground hidden sm:inline">|</span>
-                <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.LW.amount).toLocaleString()}</span>
-              </div>
-              <div className="w-px h-8 bg-border hidden sm:block"></div>
-              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
-                <span className="text-primary font-bold">CW:</span>
-                <span className="text-foreground">{Math.round(currentTotals.CW.pieces).toLocaleString()} pcs</span>
-                <span className="text-muted-foreground hidden sm:inline">|</span>
-                <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.CW.amount).toLocaleString()}</span>
-              </div>
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <span className="text-primary font-bold">MW:</span>
+              <span className="text-foreground">{Math.round(globalTotals.MW.pieces).toLocaleString()} pcs</span>
+              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-green-600 dark:text-green-400">₱{Math.round(globalTotals.MW.amount).toLocaleString()}</span>
             </div>
-            
-            {/* Bottom row: Active subcategory breakdown */}
-            <div className="flex flex-row items-center justify-center gap-2 text-xs md:text-sm font-semibold border-t pt-2 w-full text-muted-foreground">
-              <span className="font-bold">{mainCategory}-{activeSubCategory}:</span>
-              <span className="text-foreground">{Math.round(currentTotals.activeSub.pieces).toLocaleString()} pcs</span>
-              <span className="text-muted-foreground">-</span>
-              <span className="text-green-600 dark:text-green-400">₱{Math.round(currentTotals.activeSub.amount).toLocaleString()}</span>
+            <div className="w-px h-8 bg-border hidden sm:block"></div>
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <span className="text-primary font-bold">LW:</span>
+              <span className="text-foreground">{Math.round(globalTotals.LW.pieces).toLocaleString()} pcs</span>
+              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-green-600 dark:text-green-400">₱{Math.round(globalTotals.LW.amount).toLocaleString()}</span>
+            </div>
+            <div className="w-px h-8 bg-border hidden sm:block"></div>
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <span className="text-primary font-bold">CW:</span>
+              <span className="text-foreground">{Math.round(globalTotals.CW.pieces).toLocaleString()} pcs</span>
+              <span className="text-muted-foreground hidden sm:inline">|</span>
+              <span className="text-green-600 dark:text-green-400">₱{Math.round(globalTotals.CW.amount).toLocaleString()}</span>
             </div>
           </div>
         </div>
