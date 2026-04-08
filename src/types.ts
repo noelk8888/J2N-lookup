@@ -17,6 +17,8 @@ export interface Listing {
     attrW: string;
     attrH: string;
     attrM: string;
+    mainCategory?: string;
+    subCategory?: string;
 }
 
 export type MainCategory = 'MW' | 'LW' | 'CW';
