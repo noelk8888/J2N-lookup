@@ -159,11 +159,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(`approval_${user.email}`);
         }
 
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-            console.error('Error signing out:', error);
-            throw error;
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('Exception during sign out:', error);
         }
+        
+        // Force clear local state to guarantee UI updates
+        setSession(null);
+        setUser(null);
         setIsApproved(false);
         setIsAdmin(false);
     };

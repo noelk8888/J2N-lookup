@@ -4,14 +4,16 @@ import { useAuth } from '../contexts/AuthContext';
 export function Login() {
     const { signInWithGoogle, isLoading, user, isApproved, signOut } = useAuth();
     const [deniedEmail, setDeniedEmail] = useState<string | null>(null);
+    const [hasSignedOut, setHasSignedOut] = useState(false);
 
     // Automatically log out unapproved users but capture their email for the error message
     useEffect(() => {
-        if (user && !isApproved && !isLoading) {
+        if (user && !isApproved && !isLoading && !hasSignedOut) {
             setDeniedEmail(user.email ?? 'Unknown');
+            setHasSignedOut(true);
             signOut();
         }
-    }, [user, isApproved, isLoading, signOut]);
+    }, [user, isApproved, isLoading, signOut, hasSignedOut]);
 
     if (isLoading) {
         return (
