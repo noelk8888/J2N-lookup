@@ -1,19 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Login() {
     const { signInWithGoogle, isLoading, user, isApproved, signOut } = useAuth();
-    const [deniedEmail, setDeniedEmail] = useState<string | null>(null);
-    const [hasSignedOut, setHasSignedOut] = useState(false);
-
-    // Automatically log out unapproved users but capture their email for the error message
-    useEffect(() => {
-        if (user && !isApproved && !isLoading && !hasSignedOut) {
-            setDeniedEmail(user.email ?? 'Unknown');
-            setHasSignedOut(true);
-            signOut();
-        }
-    }, [user, isApproved, isLoading, signOut, hasSignedOut]);
 
     if (isLoading) {
         return (
@@ -26,9 +14,9 @@ export function Login() {
         );
     }
 
-    // User is logged in but not approved (or they just got logged out automatically)
-    if (deniedEmail || (user && !isApproved)) {
-        const displayEmail = deniedEmail || user?.email;
+    // User is logged in but not approved
+    if (user && !isApproved) {
+        const displayEmail = user.email ?? 'Unknown';
         return (
             <div className="min-h-screen bg-background flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-card border rounded-xl shadow-lg p-8 text-center">
@@ -55,10 +43,7 @@ export function Login() {
                         Please contact an administrator to request access.
                     </p>
                     <button
-                        onClick={async () => {
-                            setDeniedEmail(null);
-                            if (user) await signOut();
-                        }}
+                        onClick={signOut}
                         className="w-full px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium"
                     >
                         Try Another Account
