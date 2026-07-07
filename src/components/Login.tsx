@@ -43,7 +43,10 @@ export function Login() {
                         Please contact an administrator to request access.
                     </p>
                     <button
-                        onClick={signOut}
+                        onClick={async () => {
+                            await signOut();
+                            await signInWithGoogle();
+                        }}
                         className="w-full px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium"
                     >
                         Try Another Account
