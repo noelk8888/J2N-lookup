@@ -1,7 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 
 export function Login() {
-    const { signInWithGoogle, isLoading, user, isApproved } = useAuth();
+    const { signInWithGoogle, isLoading, user, isApproved, signOut } = useAuth();
 
     if (isLoading) {
         return (
@@ -42,7 +42,9 @@ export function Login() {
                         Please contact an administrator to request access.
                     </p>
                     <button
-                        onClick={() => window.location.href = '/'}
+                        onClick={async () => {
+                            await signOut();
+                        }}
                         className="w-full px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium"
                     >
                         Try Another Account
