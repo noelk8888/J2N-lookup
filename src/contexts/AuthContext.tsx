@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 
@@ -13,6 +13,12 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const ADMIN_EMAILS = ['noelkiu@gmail.com', 'iamnoel888@gmail.com'];
+
+interface ApprovalStatus {
+    isApproved: boolean;
+    isAdmin: boolean;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
@@ -20,41 +26,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isApproved, setIsApproved] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const sessionCheckId = useRef(0);
 
     // Check if email is in approved_emails table
-    const checkApproval = async (email: string): Promise<void> => {
+    const checkApproval = useCallback(async (email: string): Promise<ApprovalStatus> => {
+        const normalizedEmail = email.toLowerCase();
+        const cacheKey = `approval_${normalizedEmail}`;
+
         try {
             // Check cache first
-            const cacheKey = `approval_${email}`;
             const cached = sessionStorage.getItem(cacheKey);
 
             if (cached) {
                 const { isApproved: cachedApproved, isAdmin: cachedAdmin } = JSON.parse(cached);
-                console.log('Using cached approval status for:', email);
-                setIsApproved(cachedApproved);
-                setIsAdmin(cachedAdmin);
-                return;
+                console.log('Using cached approval status for:', normalizedEmail);
+                return {
+                    isApproved: cachedApproved,
+                    isAdmin: cachedAdmin,
+                };
             }
 
             // Query database - only select email since is_admin column may not exist
             const { data, error } = await supabase
                 .from('approved_emails')
                 .select('email')
-                .eq('email', email)
-                .single();
+                .ilike('email', normalizedEmail)
+                .maybeSingle();
 
             if (error || !data) {
                 console.log('Email not approved or error:', error?.message);
-                setIsApproved(false);
-                setIsAdmin(false);
                 // Don't cache negative results to allow retry
-                return;
+                return {
+                    isApproved: false,
+                    isAdmin: false,
+                };
             }
 
             // Email exists in approved list - user is approved
             // For admin check, use a hardcoded list since table doesn't have is_admin column
-            const adminEmails = ['noelkiu@gmail.com', 'iamnoel888@gmail.com'];
-            const adminStatus = adminEmails.includes(email.toLowerCase());
+            const adminStatus = ADMIN_EMAILS.includes(normalizedEmail);
 
             const approvalData = {
                 isApproved: true,
@@ -62,26 +72,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             sessionStorage.setItem(cacheKey, JSON.stringify(approvalData));
 
-            setIsApproved(true);
-            setIsAdmin(adminStatus);
+            return approvalData;
         } catch (err) {
             console.error('Error checking approval:', err);
             // On error, check if we have a cached value to fall back to
-            const cacheKey = `approval_${email}`;
             const cached = sessionStorage.getItem(cacheKey);
 
             if (cached) {
                 const { isApproved: cachedApproved, isAdmin: cachedAdmin } = JSON.parse(cached);
                 console.log('Falling back to cached approval due to error');
-                setIsApproved(cachedApproved);
-                setIsAdmin(cachedAdmin);
-            } else {
-                // Only deny access if there's no cache to fall back to
-                setIsApproved(false);
-                setIsAdmin(false);
+                return {
+                    isApproved: cachedApproved,
+                    isAdmin: cachedAdmin,
+                };
             }
+
+            // Only deny access if there's no cache to fall back to
+            return {
+                isApproved: false,
+                isAdmin: false,
+            };
         }
-    };
+    }, []);
+
+    const applySession = useCallback(async (nextSession: Session | null) => {
+        const checkId = ++sessionCheckId.current;
+        setIsLoading(true);
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+
+        if (!nextSession?.user?.email) {
+            setIsApproved(false);
+            setIsAdmin(false);
+            setIsLoading(false);
+            return;
+        }
+
+        const approval = await checkApproval(nextSession.user.email);
+
+        if (checkId !== sessionCheckId.current) {
+            return;
+        }
+
+        setIsApproved(approval.isApproved);
+        setIsAdmin(approval.isAdmin);
+        setIsLoading(false);
+    }, [checkApproval]);
 
     useEffect(() => {
         // Get initial session with timeout to prevent infinite loading
@@ -92,12 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         supabase.auth.getSession().then(async ({ data: { session } }) => {
             clearTimeout(sessionTimeout);
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user?.email) {
-                await checkApproval(session.user.email);
-            }
-            setIsLoading(false);
+            await applySession(session);
         }).catch((err) => {
             clearTimeout(sessionTimeout);
             console.error('Error getting session:', err);
@@ -108,34 +139,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
                 console.log('Auth state change event:', event);
-                setSession(session);
-                setUser(session?.user ?? null);
-
-                // Only check approval on SIGNED_IN event
-                // For all other events (TOKEN_REFRESHED, USER_UPDATED, etc.), preserve existing state
-                if (event === 'SIGNED_IN') {
-                    if (session?.user?.email) {
-                        await checkApproval(session.user.email);
-                    } else {
-                        setIsApproved(false);
-                        setIsAdmin(false);
-                    }
-                } else if (event === 'SIGNED_OUT') {
-                    setIsApproved(false);
-                    setIsAdmin(false);
-                    // Clear cache on sign out
-                    if (session?.user?.email) {
-                        sessionStorage.removeItem(`approval_${session.user.email}`);
-                    }
-                }
-                // For TOKEN_REFRESHED, USER_UPDATED, and other events, keep existing approval state
-
-                setIsLoading(false);
+                await applySession(session);
             }
         );
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, [applySession]);
 
     const signInWithGoogle = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -153,24 +162,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const signOut = async () => {
+    const signOut = useCallback(async () => {
         // Clear approval cache
         if (user?.email) {
-            sessionStorage.removeItem(`approval_${user.email}`);
+            sessionStorage.removeItem(`approval_${user.email.toLowerCase()}`);
         }
+
+        // Increment check ID to abort any pending applySession calls
+        sessionCheckId.current += 1;
+
+        // Force clear local state IMMEDIATELY to guarantee UI updates
+        // This ensures the user instantly sees the Login screen and is not blocked by network hangs
+        setSession(null);
+        setUser(null);
+        setIsApproved(false);
+        setIsAdmin(false);
+        setIsLoading(false);
 
         try {
             await supabase.auth.signOut();
         } catch (error) {
             console.error('Exception during sign out:', error);
         }
-        
-        // Force clear local state to guarantee UI updates
-        setSession(null);
-        setUser(null);
-        setIsApproved(false);
-        setIsAdmin(false);
-    };
+    }, [user]);
 
     return (
         <AuthContext.Provider
