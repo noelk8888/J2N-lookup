@@ -1,7 +1,17 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Login() {
     const { signInWithGoogle, isLoading, user, isApproved, signOut } = useAuth();
+    const [deniedEmail, setDeniedEmail] = useState<string | null>(null);
+
+    // Automatically log out unapproved users but capture their email for the error message
+    useEffect(() => {
+        if (user && !isApproved && !isLoading) {
+            setDeniedEmail(user.email ?? 'Unknown');
+            signOut();
+        }
+    }, [user, isApproved, isLoading, signOut]);
 
     if (isLoading) {
         return (
@@ -14,8 +24,9 @@ export function Login() {
         );
     }
 
-    // User is logged in but not approved
-    if (user && !isApproved) {
+    // User is logged in but not approved (or they just got logged out automatically)
+    if (deniedEmail || (user && !isApproved)) {
+        const displayEmail = deniedEmail || user?.email;
         return (
             <div className="min-h-screen bg-background flex items-center justify-center p-4">
                 <div className="max-w-md w-full bg-card border rounded-xl shadow-lg p-8 text-center">
@@ -36,14 +47,15 @@ export function Login() {
                     </div>
                     <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
                     <p className="text-muted-foreground mb-4">
-                        Your email <strong className="text-foreground">{user.email}</strong> is not approved for access.
+                        Your email <strong className="text-foreground">{displayEmail}</strong> is not approved for access.
                     </p>
                     <p className="text-sm text-muted-foreground mb-6">
                         Please contact an administrator to request access.
                     </p>
                     <button
                         onClick={async () => {
-                            await signOut();
+                            setDeniedEmail(null);
+                            if (user) await signOut();
                         }}
                         className="w-full px-4 py-3 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-medium"
                     >
