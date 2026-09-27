@@ -18,8 +18,8 @@ const MARLON_STYLES = new Set([
   'LD03366', 'LS03084', 'GT03403', 'MT03248', 'MT00635', 'MS03220',
   'MS03306', 'MS00639', 'MS00636', 'MS03222', 'GP01027', 'BT03329',
   'BT03345', 'BS03312', 'GS03271', 'GP03401', 'CP01321', 'GD01879',
-  'GD08888', 'LP03211', 'LT02304', 'LT02435', 'LT02321', 'LT03368',
-  'LT03348', 'LT03222', 'LK03228', 'LD03370', 'LD03388', 'LD03347',
+  'GD8888', 'LP03211', 'LT02304', 'LT02435', 'LT02321', 'LT03368',
+  'LT03348', 'LT03322', 'LK03228', 'LD03370', 'LD03388', 'LD03347',
   'LD03379', 'LD03333', 'LD03378', 'LD03389', 'LD03301', 'LD03235',
   'LD03218', 'LD03367', 'LD03365', 'LD03279', 'LJ00643', 'LJ01629',
   'LJ03009',
@@ -27,6 +27,14 @@ const MARLON_STYLES = new Set([
 
 const isMarlonStyle = (itemCode: string): boolean => {
   return itemCode.toUpperCase().split(/[^A-Z0-9]+/).some(code => MARLON_STYLES.has(code));
+};
+
+const findStyleCode = (itemCode: string): string | undefined => (
+  itemCode.toUpperCase().split(/[^A-Z0-9]+/).find(code => /^[A-Z]{2,3}\d{3,5}$/.test(code))
+);
+
+const getStyleCode = (itemCode: string): string => {
+  return findStyleCode(itemCode) ?? itemCode.trim().toUpperCase();
 };
 
 // Helper to extract suffix number from item code (e.g., "CHN MJ00617" -> 617)
@@ -37,6 +45,7 @@ const extractSuffixNumber = (itemCode: string): number => {
 
 function AppContent() {
   const { user, isAdmin, signOut } = useAuth();
+  const [allStylesActive, setAllStylesActive] = useState(false);
   const [mainCategory, setMainCategory] = useState<MainCategory>('MW');
   const [activeSubCategory, setActiveSubCategory] = useState<SubCategory>('TOPS');
   const [searchQuery, setSearchQuery] = useState('');
@@ -106,6 +115,8 @@ function AppContent() {
 
   // Check loading state
   const isSearchLoading = isSearching && allSheetsQueries.some(q => q.isLoading);
+  const isAllStylesLoading = allStylesActive && allSheetsQueries.some(q => q.isLoading);
+  const allStylesError = allStylesActive ? allSheetsQueries.find(q => q.error)?.error : null;
 
   // Combine all data for global search and totals
   const allListingsArray = useMemo(() => {
@@ -132,13 +143,13 @@ function AppContent() {
   // Check if search query is exactly 5 digits
   const isFiveDigitSearch = /^\d{5}$/.test(searchQuery.trim());
 
-  // Client-side filtering
-  const filteredListings = useMemo(() => {
-    // When searching (2+ chars), use all listings from all sheets; otherwise use current category
-    const sourceListings = isSearching ? allListingsArray : listings;
+  // Apply the usual search and availability rules before counting either group.
+  const baseListings = useMemo(() => {
+    const sourceListings = allStylesActive
+      ? allListingsArray.filter(item => findStyleCode(item.itemCode))
+      : isSearching ? allListingsArray : listings;
 
     return sourceListings.filter(item => {
-      if (!matchesMarlonFilter(item.itemCode)) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase().trim();
 
@@ -155,15 +166,36 @@ function AppContent() {
         );
       }
       // If showAll is true, show everything
-      if (showAll) return true;
+      if (showAll || allStylesActive) return true;
 
     // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
       return item.totalQuantity > 0 || isSpecialItem(item);
     });
-  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allListingsArray, matchesMarlonFilter]);
+  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allStylesActive, allListingsArray]);
+
+  const styleCounts = useMemo(() => {
+    const marlon = new Set<string>();
+    const nonMarlon = new Set<string>();
+    baseListings.forEach(item => {
+      const styles = isMarlonStyle(item.itemCode) ? marlon : nonMarlon;
+      styles.add(getStyleCode(item.itemCode));
+    });
+    return { marlon: marlon.size, nonMarlon: nonMarlon.size };
+  }, [baseListings]);
+
+  const filteredListings = useMemo(() => (
+    baseListings.filter(item => matchesMarlonFilter(item.itemCode))
+  ), [baseListings, matchesMarlonFilter]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
+    if (allStylesActive) {
+      return [...filteredListings].sort((a, b) =>
+        getStyleCode(a.itemCode).localeCompare(getStyleCode(b.itemCode)) ||
+        a.itemCode.localeCompare(b.itemCode)
+      );
+    }
+
     // Separate items that should always be at the end
     const regularItems = filteredListings.filter(item => !isEndItem(item));
     const endItems = filteredListings.filter(item => isEndItem(item));
@@ -192,7 +224,7 @@ function AppContent() {
 
     // Append "always at end" items
     return [...sortedRegular, ...endItems];
-  }, [filteredListings, sortField, sortDirection]);
+  }, [filteredListings, sortField, sortDirection, allStylesActive]);
 
   // Calculate global totals for the sticky footer
   const globalTotals = useMemo(() => {
@@ -233,6 +265,7 @@ function AppContent() {
   }, [filteredListings]);
 
   const handleMainCategoryChange = (cat: MainCategory) => {
+    setAllStylesActive(false);
     setMainCategory(cat);
     const subs = getSubcategories(cat);
     if (subs.length > 0) {
@@ -338,11 +371,11 @@ function AppContent() {
             <div className="flex items-center gap-4 text-sm">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={showMarlon} onChange={e => setShowMarlon(e.target.checked)} className="accent-primary" />
-                Marlon
+                Marlon ({styleCounts.marlon})
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={showNonMarlon} onChange={e => setShowNonMarlon(e.target.checked)} className="accent-primary" />
-                Non-Marlon
+                Non-Marlon ({styleCounts.nonMarlon})
               </label>
             </div>
 
@@ -350,6 +383,8 @@ function AppContent() {
             <div className="hidden sm:flex items-center gap-4">
               <CategoryTabs
                 mainCategory={mainCategory}
+                allStylesActive={allStylesActive}
+                onAllStylesChange={() => setAllStylesActive(true)}
                 activeSubCategory={activeSubCategory}
                 subcategories={subcategories}
                 onMainCategoryChange={handleMainCategoryChange}
@@ -357,7 +392,7 @@ function AppContent() {
               />
 
               {/* Sort Section */}
-              <div className="flex items-center gap-2 ml-auto">
+              {!allStylesActive && <div className="flex items-center gap-2 ml-auto">
                 <span className="text-sm text-muted-foreground whitespace-nowrap">Sort:</span>
                 <select
                   value={sortField}
@@ -382,18 +417,22 @@ function AppContent() {
                     )}
                   </button>
                 )}
-              </div>
+              </div>}
             </div>
 
             {/* Mobile: Main Categories + Sort on one row */}
-            <div className="flex sm:hidden items-center gap-4">
-              <MainCategoryTabs
-                mainCategory={mainCategory}
-                onMainCategoryChange={handleMainCategoryChange}
-              />
+            <div className="flex sm:hidden items-center gap-4 min-w-0">
+              <div className="min-w-0 overflow-x-auto no-scrollbar">
+                <MainCategoryTabs
+                  mainCategory={mainCategory}
+                  allStylesActive={allStylesActive}
+                  onAllStylesChange={() => setAllStylesActive(true)}
+                  onMainCategoryChange={handleMainCategoryChange}
+                />
+              </div>
 
               {/* Sort Section */}
-              <div className="flex items-center gap-2 ml-auto">
+              {!allStylesActive && <div className="flex items-center gap-2 ml-auto shrink-0">
                 <span className="text-sm text-muted-foreground whitespace-nowrap">Sort:</span>
                 <select
                   value={sortField}
@@ -418,17 +457,17 @@ function AppContent() {
                     )}
                   </button>
                 )}
-              </div>
+              </div>}
             </div>
 
             {/* Mobile: Subcategories on separate row */}
-            <div className="sm:hidden">
+            {!allStylesActive && <div className="sm:hidden">
               <SubCategoryTabs
                 activeSubCategory={activeSubCategory}
                 subcategories={subcategories}
                 onSubCategoryChange={setActiveSubCategory}
               />
-            </div>
+            </div>}
           </div>
         </div>
       </header>
@@ -437,7 +476,7 @@ function AppContent() {
         {/* Active subcategory breakdown / Search breakdown */}
         <div className="mb-4 flex flex-row items-center gap-2 text-sm md:text-base font-semibold text-muted-foreground">
           <span className="font-bold text-slate-600 dark:text-slate-300 uppercase shrink-0">
-            {isSearching ? 'SEARCH RESULTS' : `${mainCategory}-${activeSubCategory}`}:
+            {isSearching ? 'SEARCH RESULTS' : allStylesActive ? 'ALL STYLES' : `${mainCategory}-${activeSubCategory}`}:
           </span>
           <span className="text-foreground">{Math.round(activeViewTotals.pieces).toLocaleString()} pcs</span>
           <span className="text-muted-foreground">-</span>
@@ -446,9 +485,9 @@ function AppContent() {
 
         <ListingGrid
           listings={sortedListings}
-          isLoading={isLoading || isSearchLoading}
-          error={error as Error | null}
-          showAll={showAll}
+          isLoading={isAllStylesLoading || (!allStylesActive && (isLoading || isSearchLoading))}
+          error={(allStylesActive ? allStylesError : error) as Error | null}
+          showAll={showAll || allStylesActive}
         />
       </main>
 
