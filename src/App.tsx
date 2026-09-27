@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getSubcategories, getMainCategoryConfig, MAIN_CATEGORIES } from './config/sheets';
 import { fetchCategoryData } from './services/sheetService';
@@ -12,6 +12,22 @@ import { Search, ArrowUp, ArrowDown, X, LogOut, Settings } from 'lucide-react';
 
 type SortField = 'none' | 'quantity' | 'styleNumber' | 'suffix';
 type SortDirection = 'asc' | 'desc';
+
+const MARLON_STYLES = new Set([
+  'MT03287', 'BT03299', 'LT03197', 'LD03290', 'LD03265', 'LD03246',
+  'LD03366', 'LS03084', 'GT03403', 'MT03248', 'MT00635', 'MS03220',
+  'MS03306', 'MS00639', 'MS00636', 'MS03222', 'GP01027', 'BT03329',
+  'BT03345', 'BS03312', 'GS03271', 'GP03401', 'CP01321', 'GD01879',
+  'GD08888', 'LP03211', 'LT02304', 'LT02435', 'LT02321', 'LT03368',
+  'LT03348', 'LT03222', 'LK03228', 'LD03370', 'LD03388', 'LD03347',
+  'LD03379', 'LD03333', 'LD03378', 'LD03389', 'LD03301', 'LD03235',
+  'LD03218', 'LD03367', 'LD03365', 'LD03279', 'LJ00643', 'LJ01629',
+  'LJ03009',
+]);
+
+const isMarlonStyle = (itemCode: string): boolean => {
+  return itemCode.toUpperCase().split(/[^A-Z0-9]+/).some(code => MARLON_STYLES.has(code));
+};
 
 // Helper to extract suffix number from item code (e.g., "CHN MJ00617" -> 617)
 const extractSuffixNumber = (itemCode: string): number => {
@@ -28,6 +44,14 @@ function AppContent() {
   const [sortField, setSortField] = useState<SortField>('quantity');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showMarlon, setShowMarlon] = useState(true);
+  const [showNonMarlon, setShowNonMarlon] = useState(true);
+
+  const matchesMarlonFilter = useCallback((itemCode: string) => {
+    if (showMarlon && showNonMarlon) return true;
+    if (!showMarlon && !showNonMarlon) return false;
+    return isMarlonStyle(itemCode) === showMarlon;
+  }, [showMarlon, showNonMarlon]);
 
   const mainCategoryConfig = getMainCategoryConfig(mainCategory);
   const subcategories = mainCategoryConfig?.subcategories || [];
@@ -114,6 +138,7 @@ function AppContent() {
     const sourceListings = isSearching ? allListingsArray : listings;
 
     return sourceListings.filter(item => {
+      if (!matchesMarlonFilter(item.itemCode)) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase().trim();
 
@@ -135,8 +160,7 @@ function AppContent() {
     // If showAll is false, show items with quantity > 0 OR special items (CONTINUOUS/D2)
       return item.totalQuantity > 0 || isSpecialItem(item);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allListingsArray]);
+  }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allListingsArray, matchesMarlonFilter]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
@@ -179,6 +203,7 @@ function AppContent() {
       CW: { pieces: 0, amount: 0 }
     };
     allListingsArray.forEach(item => {
+      if (!matchesMarlonFilter(item.itemCode)) return;
       const cat = item.mainCategory as 'MW' | 'LW' | 'CW';
       const q = item.totalQuantity || 0;
       const amt = q * (item.cost || 0);
@@ -192,7 +217,7 @@ function AppContent() {
       }
     });
     return totals;
-  }, [allListingsArray]);
+  }, [allListingsArray, matchesMarlonFilter]);
 
   // Calculate active view totals for the chosen category / search
   const activeViewTotals = useMemo(() => {
@@ -308,6 +333,17 @@ function AppContent() {
                   <X className="h-4 w-4" />
                 </button>
               )}
+            </div>
+
+            <div className="flex items-center gap-4 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={showMarlon} onChange={e => setShowMarlon(e.target.checked)} className="accent-primary" />
+                Marlon
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={showNonMarlon} onChange={e => setShowNonMarlon(e.target.checked)} className="accent-primary" />
+                Non-Marlon
+              </label>
             </div>
 
             {/* Desktop: Category Tabs + Sort on same row */}
