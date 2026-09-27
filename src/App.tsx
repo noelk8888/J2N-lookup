@@ -150,6 +150,8 @@ function AppContent() {
       : isSearching ? allListingsArray : listings;
 
     return sourceListings.filter(item => {
+      if (allStylesActive && !showAll && !(item.totalQuantity > 0)) return false;
+
       if (searchQuery) {
         const q = searchQuery.toLowerCase().trim();
 
@@ -487,7 +489,7 @@ function AppContent() {
           listings={sortedListings}
           isLoading={isAllStylesLoading || (!allStylesActive && (isLoading || isSearchLoading))}
           error={(allStylesActive ? allStylesError : error) as Error | null}
-          showAll={showAll || allStylesActive}
+          showAll={showAll}
         />
       </main>
 
