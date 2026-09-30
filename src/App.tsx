@@ -12,6 +12,7 @@ import { Search, ArrowUp, ArrowDown, X, LogOut, Settings } from 'lucide-react';
 
 type SortField = 'none' | 'quantity' | 'styleNumber' | 'suffix';
 type SortDirection = 'asc' | 'desc';
+type StyleGroup = 'marlon' | 'nonMarlon' | 'sm';
 
 const MARLON_STYLES = new Set([
   'MT03287', 'BT03299', 'LT03197', 'LD03290', 'LD03265', 'LD03246',
@@ -25,8 +26,19 @@ const MARLON_STYLES = new Set([
   'LJ03009',
 ]);
 
-const isMarlonStyle = (itemCode: string): boolean => {
-  return itemCode.toUpperCase().split(/[^A-Z0-9]+/).some(code => MARLON_STYLES.has(code));
+const SM_STYLES = new Set([
+  'MT03479', 'MT03488', 'MJ03441', 'MJ03438', 'MP03440', 'MJ03011',
+  'MT02216', 'LT03229', 'LT02206', 'LT00624', 'LT03190', 'LS03451',
+  'LP03364', 'LP03365', 'LP03231', 'LP03419', 'LP03083', 'LP03084',
+  'LJ02156', 'LJ03324', 'LT03369', 'BT03427', 'BT03422', 'CP01378',
+  'BP571', 'BT03289', 'GT03290',
+]);
+
+const getStyleGroup = (itemCode: string): StyleGroup => {
+  const codes = itemCode.toUpperCase().split(/[^A-Z0-9]+/);
+  if (codes.some(code => MARLON_STYLES.has(code))) return 'marlon';
+  if (codes.some(code => SM_STYLES.has(code))) return 'sm';
+  return 'nonMarlon';
 };
 
 const findStyleCode = (itemCode: string): string | undefined => (
@@ -55,12 +67,14 @@ function AppContent() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMarlon, setShowMarlon] = useState(true);
   const [showNonMarlon, setShowNonMarlon] = useState(true);
+  const [showSm, setShowSm] = useState(true);
 
-  const matchesMarlonFilter = useCallback((itemCode: string) => {
-    if (showMarlon && showNonMarlon) return true;
-    if (!showMarlon && !showNonMarlon) return false;
-    return isMarlonStyle(itemCode) === showMarlon;
-  }, [showMarlon, showNonMarlon]);
+  const matchesStyleGroup = useCallback((itemCode: string) => {
+    const group = getStyleGroup(itemCode);
+    return (group === 'marlon' && showMarlon) ||
+      (group === 'nonMarlon' && showNonMarlon) ||
+      (group === 'sm' && showSm);
+  }, [showMarlon, showNonMarlon, showSm]);
 
   const mainCategoryConfig = getMainCategoryConfig(mainCategory);
   const subcategories = mainCategoryConfig?.subcategories || [];
@@ -176,18 +190,24 @@ function AppContent() {
   }, [listings, searchQuery, showAll, isFiveDigitSearch, isSearching, allStylesActive, allListingsArray]);
 
   const styleCounts = useMemo(() => {
-    const marlon = new Set<string>();
-    const nonMarlon = new Set<string>();
+    const styles: Record<StyleGroup, Set<string>> = {
+      marlon: new Set(),
+      nonMarlon: new Set(),
+      sm: new Set(),
+    };
     baseListings.forEach(item => {
-      const styles = isMarlonStyle(item.itemCode) ? marlon : nonMarlon;
-      styles.add(getStyleCode(item.itemCode));
+      styles[getStyleGroup(item.itemCode)].add(getStyleCode(item.itemCode));
     });
-    return { marlon: marlon.size, nonMarlon: nonMarlon.size };
+    return {
+      marlon: styles.marlon.size,
+      nonMarlon: styles.nonMarlon.size,
+      sm: styles.sm.size,
+    };
   }, [baseListings]);
 
   const filteredListings = useMemo(() => (
-    baseListings.filter(item => matchesMarlonFilter(item.itemCode))
-  ), [baseListings, matchesMarlonFilter]);
+    baseListings.filter(item => matchesStyleGroup(item.itemCode))
+  ), [baseListings, matchesStyleGroup]);
 
   // Sorting logic - keeps "always at end" items at the bottom
   const sortedListings = useMemo(() => {
@@ -237,7 +257,7 @@ function AppContent() {
       CW: { pieces: 0, amount: 0 }
     };
     allListingsArray.forEach(item => {
-      if (!matchesMarlonFilter(item.itemCode)) return;
+      if (!matchesStyleGroup(item.itemCode)) return;
       const cat = item.mainCategory as 'MW' | 'LW' | 'CW';
       const q = item.totalQuantity || 0;
       const amt = q * (item.cost || 0);
@@ -251,7 +271,7 @@ function AppContent() {
       }
     });
     return totals;
-  }, [allListingsArray, matchesMarlonFilter]);
+  }, [allListingsArray, matchesStyleGroup]);
 
   // Calculate active view totals for the chosen category / search
   const activeViewTotals = useMemo(() => {
@@ -370,7 +390,7 @@ function AppContent() {
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={showMarlon} onChange={e => setShowMarlon(e.target.checked)} className="accent-primary" />
                 Marlon ({styleCounts.marlon})
@@ -378,6 +398,10 @@ function AppContent() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={showNonMarlon} onChange={e => setShowNonMarlon(e.target.checked)} className="accent-primary" />
                 Non-Marlon ({styleCounts.nonMarlon})
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={showSm} onChange={e => setShowSm(e.target.checked)} className="accent-primary" />
+                SM ({styleCounts.sm})
               </label>
             </div>
 
