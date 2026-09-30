@@ -19,7 +19,7 @@ const MARLON_STYLES = new Set([
   'LD03366', 'LS03084', 'GT03403', 'MT03248', 'MT00635', 'MS03220',
   'MS03306', 'MS00639', 'MS00636', 'MS03222', 'GP01027', 'BT03329',
   'BT03345', 'BS03312', 'GS03271', 'GP03401', 'CP01321', 'GD01879',
-  'GD8888', 'LP03211', 'LT02304', 'LT02435', 'LT02321',
+  'GD8888', 'LP03211', 'LT02304', 'LT02435', 'LT02321', 'LT03368',
   'LT03348', 'LT03322', 'LK03228', 'LD03370', 'LD03388', 'LD03347',
   'LD03379', 'LD03333', 'LD03378', 'LD03389', 'LD03301', 'LD03235',
   'LD03218', 'LD03367', 'LD03365', 'LD03279', 'LJ00643', 'LJ01629',
@@ -34,11 +34,12 @@ const SM_STYLES = new Set([
   'CP01378', 'BP571', 'BT03289', 'BT03291', 'BP03400', 'GT03290',
 ]);
 
-const getStyleGroup = (itemCode: string): StyleGroup => {
+const getStyleGroups = (itemCode: string): StyleGroup[] => {
   const codes = itemCode.toUpperCase().split(/[^A-Z0-9]+/);
-  if (codes.some(code => MARLON_STYLES.has(code))) return 'marlon';
-  if (codes.some(code => SM_STYLES.has(code))) return 'sm';
-  return 'nonMarlon';
+  const groups: StyleGroup[] = [];
+  if (codes.some(code => MARLON_STYLES.has(code))) groups.push('marlon');
+  if (codes.some(code => SM_STYLES.has(code))) groups.push('sm');
+  return groups.length > 0 ? groups : ['nonMarlon'];
 };
 
 const findStyleCode = (itemCode: string): string | undefined => (
@@ -70,10 +71,11 @@ function AppContent() {
   const [showSm, setShowSm] = useState(true);
 
   const matchesStyleGroup = useCallback((itemCode: string) => {
-    const group = getStyleGroup(itemCode);
-    return (group === 'marlon' && showMarlon) ||
+    return getStyleGroups(itemCode).some(group =>
+      (group === 'marlon' && showMarlon) ||
       (group === 'nonMarlon' && showNonMarlon) ||
-      (group === 'sm' && showSm);
+      (group === 'sm' && showSm)
+    );
   }, [showMarlon, showNonMarlon, showSm]);
 
   const mainCategoryConfig = getMainCategoryConfig(mainCategory);
@@ -196,7 +198,9 @@ function AppContent() {
       sm: new Set(),
     };
     baseListings.forEach(item => {
-      styles[getStyleGroup(item.itemCode)].add(getStyleCode(item.itemCode));
+      getStyleGroups(item.itemCode).forEach(group => {
+        styles[group].add(getStyleCode(item.itemCode));
+      });
     });
     return {
       marlon: styles.marlon.size,
